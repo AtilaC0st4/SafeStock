@@ -1,65 +1,175 @@
-import { View, Text, TextInput, StyleSheet, Button, Alert } from 'react-native'
-import { useState, FC } from 'react'
-import { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { RootStackParamList } from '../types'
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, StyleSheet, Alert, ScrollView } from 'react-native';
+import { Picker } from '@react-native-picker/picker'; // Instale: npm install @react-native-picker/picker
 
-type ResourceFormScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Novo Recurso'>
+type Item = {
+  nome: string;
+  quantidade: number;
+  status: 'baixo' | 'médio' | 'ideal';
+};
 
-type Props = {
-  navigation: ResourceFormScreenNavigationProp
-}
+type Categoria = {
+  titulo: string;
+  itens: Item[];
+};
 
-const ResourceFormScreen: FC<Props> = ({ navigation }) => {
-  const [nome, setNome] = useState('')
-  const [consumo, setConsumo] = useState('')
+const categorias: Categoria[] = [
+  {
+    titulo: 'Higiene e Limpeza',
+    itens: [
+      { nome: 'Papel Higiênico', quantidade: 12, status: 'ideal' },
+      { nome: 'Sabonete', quantidade: 3, status: 'médio' },
+      { nome: 'Detergente', quantidade: 1, status: 'baixo' },
+      { nome: 'Álcool em Gel', quantidade: 2, status: 'médio' },
+    ],
+  },
+  {
+    titulo: 'Alimentos e Bebidas',
+    itens: [
+      { nome: 'Arroz', quantidade: 5, status: 'ideal' },
+      { nome: 'Feijão', quantidade: 2, status: 'médio' },
+      { nome: 'Óleo de Cozinha', quantidade: 1, status: 'baixo' },
+      { nome: 'Café', quantidade: 0, status: 'baixo' },
+    ],
+  },
+  {
+    titulo: 'Primeiros Socorros',
+    itens: [
+      { nome: 'Curativos', quantidade: 10, status: 'ideal' },
+      { nome: 'Álcool 70%', quantidade: 1, status: 'baixo' },
+      { nome: 'Antisséptico', quantidade: 2, status: 'médio' },
+      { nome: 'Analgésico', quantidade: 5, status: 'ideal' },
+    ],
+  },
+  {
+    titulo: 'Outros Úteis',
+    itens: [
+      { nome: 'Pilhas', quantidade: 3, status: 'médio' },
+      { nome: 'Lanterna', quantidade: 1, status: 'ideal' },
+      { nome: 'Máscaras', quantidade: 0, status: 'baixo' },
+      { nome: 'Papel e Caneta', quantidade: 4, status: 'médio' },
+    ],
+  },
+];
 
-  function handleSalvar() {
-    if (!nome || !consumo) {
-      Alert.alert('Erro', 'Preencha todos os campos')
-      return
+export default function ResourceFormScreen() {
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>('');
+  const [itemSelecionado, setItemSelecionado] = useState<string>('');
+  const [quantidade, setQuantidade] = useState<string>('');
+
+  // Quando categoria muda, resetar item selecionado
+  useEffect(() => {
+    setItemSelecionado('');
+  }, [categoriaSelecionada]);
+
+  // Busca o status do item selecionado
+  const getStatusDoItem = (): 'baixo' | 'médio' | 'ideal' | '' => {
+    if (!categoriaSelecionada || !itemSelecionado) return '';
+    const categoria = categorias.find(cat => cat.titulo === categoriaSelecionada);
+    if (!categoria) return '';
+    const item = categoria.itens.find(it => it.nome === itemSelecionado);
+    return item ? item.status : '';
+  };
+
+  const handleSalvar = () => {
+    if (!categoriaSelecionada || !itemSelecionado || !quantidade) {
+      Alert.alert('Erro', 'Preencha todos os campos.');
+      return;
     }
-    // aqui você faria a chamada à API para salvar via fetch
 
-    Alert.alert('Sucesso', `Recurso ${nome} salvo com consumo ${consumo}`)
-    navigation.goBack()
-  }
+    const status = getStatusDoItem();
+    if (!status) {
+      Alert.alert('Erro', 'Status do recurso não encontrado.');
+      return;
+    }
+
+    console.log({
+      nome: itemSelecionado,
+      quantidade: Number(quantidade),
+      categoria: categoriaSelecionada,
+      status,
+    });
+
+    Alert.alert('Sucesso', 'Recurso cadastrado com sucesso!');
+    setCategoriaSelecionada('');
+    setItemSelecionado('');
+    setQuantidade('');
+  };
+
+  // Itens disponíveis na categoria selecionada
+  const itensDaCategoria = categoriaSelecionada
+    ? categorias.find(cat => cat.titulo === categoriaSelecionada)?.itens ?? []
+    : [];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Novo Recurso</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.label}>Categoria</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={categoriaSelecionada}
+          onValueChange={(itemValue) => setCategoriaSelecionada(itemValue)}
+        >
+          <Picker.Item label="Selecione uma categoria" value="" />
+          {categorias.map(cat => (
+            <Picker.Item key={cat.titulo} label={cat.titulo} value={cat.titulo} />
+          ))}
+        </Picker>
+      </View>
 
-      <Text>Nome</Text>
+      <Text style={styles.label}>Recurso</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={itemSelecionado}
+          onValueChange={(itemValue) => setItemSelecionado(itemValue)}
+          enabled={!!categoriaSelecionada}
+        >
+          <Picker.Item label="Selecione um recurso" value="" />
+          {itensDaCategoria.map(it => (
+            <Picker.Item key={it.nome} label={it.nome} value={it.nome} />
+          ))}
+        </Picker>
+      </View>
+
+      <Text style={styles.label}>Quantidade</Text>
       <TextInput
         style={styles.input}
-        value={nome}
-        onChangeText={setNome}
-        placeholder="Nome do recurso"
-      />
-
-      <Text>Consumo</Text>
-      <TextInput
-        style={styles.input}
-        value={consumo}
-        onChangeText={setConsumo}
+        placeholder="Ex: 5"
         keyboardType="numeric"
-        placeholder="Quantidade consumida"
+        value={quantidade}
+        onChangeText={setQuantidade}
       />
 
-      <Button title="Salvar" onPress={handleSalvar} />
-    </View>
-  )
+      <Text style={styles.label}>Status: {getStatusDoItem() || '-'}</Text>
+
+      <View style={styles.button}>
+        <Button title="Salvar Recurso" onPress={handleSalvar} />
+      </View>
+    </ScrollView>
+  );
 }
 
-export default ResourceFormScreen
+import { TextInput } from 'react-native';
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#999',
-    padding: 8,
-    marginBottom: 20,
-    borderRadius: 6,
+  container: {
+    padding: 20,
   },
-})
+  label: {
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  pickerContainer: {
+    backgroundColor: '#f3f3f3',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  input: {
+    backgroundColor: '#f3f3f3',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+  },
+  button: {
+    marginTop: 10,
+  },
+});
