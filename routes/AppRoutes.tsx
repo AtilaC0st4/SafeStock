@@ -4,7 +4,8 @@ import DashboardScreen from '../screens/DashboardScreen';
 import ResourceFormScreen from '../screens/ResourceFormScreen';
 import ResourceWithdrawScreen from '../screens/ResourceWithdrawScreen';
 import CategoriasScreen from '../screens/CategoriasScreen';
-import { RootStackParamList } from '../types'; // Importe sua tipagem
+import CadastroProdutoScreen from '../screens/CadastroProdutoScreen';
+import { RootStackParamList } from '../types'; 
 
 // Use a tipagem criada
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,30 +27,36 @@ const screenOptions: NativeStackNavigationOptions = {
 export default function AppRoutes() {
   return (
     <NavigationContainer>
-      <Stack.Navigator 
+      <Stack.Navigator
         initialRouteName="Dashboard"
         screenOptions={screenOptions}
       >
-        <Stack.Screen 
-          name="Dashboard" 
-          component={DashboardScreen} 
+        <Stack.Screen
+          name="Dashboard"
+          component={DashboardScreen}
           options={{ title: 'Painel de Recursos' }}
         />
-        <Stack.Screen 
-          name="Novo Recurso" 
-          component={ResourceFormScreen} 
+        <Stack.Screen
+          name="Novo Recurso"
+          component={ResourceFormScreen}
           options={{ title: 'Cadastrar Recurso' }}
         />
-        <Stack.Screen 
-          name="Retirada de Recursos" 
+        <Stack.Screen
+          name="Retirada de Recursos"
           component={ResourceWithdrawScreen}
-          options={{ title: 'Retirada de Recursos' }} 
+          options={{ title: 'Retirada de Recursos' }}
         />
-        <Stack.Screen 
-          name="Categorias" 
+        <Stack.Screen
+          name="Categorias"
           component={CategoriasScreen}
           options={{ title: 'Gerenciar Categorias' }}
         />
+        <Stack.Screen
+          name="CadastroProduto"
+          component={CadastroProdutoScreen}
+          options={{ title: 'Cadastrar Novo Produto' }}
+        />
+
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -4,10 +4,11 @@ export type RootStackParamList = {
   Dashboard: undefined;
   'Novo Recurso': undefined;
   'Retirada de Recursos': undefined;
-  'Categorias': undefined; // Nova tela adicionada
+  'Categorias': undefined; 
+  'CadastroProduto': undefined;
 };
 
-// Tipos específicos para cada tela
+
 export type DashboardScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   'Dashboard'
