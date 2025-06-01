@@ -100,6 +100,12 @@ export default function DashboardScreen() {
           onPress={() => navigation.navigate('Novo Recurso')}
         />
       </View>
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Cadastrar Novo Recurso"
+          onPress={() => navigation.navigate('Retirada de Recursos')}
+        />
+      </View>
     </>
   );
 }
