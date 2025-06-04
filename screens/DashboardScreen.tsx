@@ -1,92 +1,210 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, Button } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Button, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DashboardScreenNavigationProp } from '../types'
+import { DashboardScreenNavigationProp } from '../types';
 
+const API_URL = 'http://192.168.152.141:5194/api';
 
-type Item = {
+// Type definitions
+type ProdutoStatusDTO = {
   nome: string;
+  categoria: string;
   quantidade: number;
-  status: 'baixo' | 'médio' | 'ideal';
+  status: string;
+  corStatus: string;
 };
 
-type Categoria = {
+type DashboardDTO = {
+  totalProdutos: number;
+  produtosEmEstoqueBaixo: number;
+  totalCategorias: number;
+  statusProdutos: ProdutoStatusDTO[];
+};
+
+type CategoriaGroup = {
   titulo: string;
-  itens: Item[];
+  itens: {
+    nome: string;
+    quantidade: number;
+    status: 'baixo' | 'médio' | 'ideal';
+  }[];
 };
 
-const categorias: Categoria[] = [
-  {
-    titulo: 'Higiene e Limpeza',
-    itens: [
-      { nome: 'Papel Higiênico', quantidade: 12, status: 'ideal' },
-      { nome: 'Sabonete', quantidade: 3, status: 'médio' },
-      { nome: 'Detergente', quantidade: 1, status: 'baixo' },
-      { nome: 'Álcool em Gel', quantidade: 2, status: 'médio' },
-    ],
-  },
-  {
-    titulo: 'Alimentos e Bebidas',
-    itens: [
-      { nome: 'Arroz', quantidade: 5, status: 'ideal' },
-      { nome: 'Feijão', quantidade: 2, status: 'médio' },
-      { nome: 'Óleo de Cozinha', quantidade: 1, status: 'baixo' },
-      { nome: 'Café', quantidade: 0, status: 'baixo' },
-    ],
-  },
-  {
-    titulo: 'Primeiros Socorros',
-    itens: [
-      { nome: 'Curativos', quantidade: 10, status: 'ideal' },
-      { nome: 'Álcool 70%', quantidade: 1, status: 'baixo' },
-      { nome: 'Antisséptico', quantidade: 2, status: 'médio' },
-      { nome: 'Analgésico', quantidade: 5, status: 'ideal' },
-    ],
-  },
-  {
-    titulo: 'Outros Úteis',
-    itens: [
-      { nome: 'Pilhas', quantidade: 3, status: 'médio' },
-      { nome: 'Lanterna', quantidade: 1, status: 'ideal' },
-      { nome: 'Máscaras', quantidade: 0, status: 'baixo' },
-      { nome: 'Papel e Caneta', quantidade: 4, status: 'médio' },
-    ],
-  },
-];
-
-const getStatusStyle = (status: 'baixo' | 'médio' | 'ideal') => {
-  switch (status) {
-    case 'ideal':
-      return styles.statusIdeal;
-    case 'médio':
-      return styles.statusMedio;
-    case 'baixo':
-      return styles.statusBaixo;
-  }
+type ApiError = {
+  message: string;
+  status?: number;
 };
 
 export default function DashboardScreen() {
   const navigation = useNavigation<DashboardScreenNavigationProp>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardDTO | null>(null);
+  const [categorias, setCategorias] = useState<CategoriaGroup[]>([]);
 
+  // Error handling helper
+  const handleApiError = (err: unknown): string => {
+    if (err instanceof Error) {
+      return err.message;
+    }
+    if (typeof err === 'string') {
+      return err;
+    }
+    return 'Erro desconhecido ao conectar com a API';
+  };
+
+  // Fetch data from API
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      console.log(`Fetching data from: ${API_URL}/dashboard`);
+      const response = await fetch(`${API_URL}/dashboard`, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data: DashboardDTO = await response.json();
+      setDashboardData(data);
+      setCategorias(transformData(data));
+      
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('A requisição demorou muito. Tente novamente.');
+      } else {
+        setError(handleApiError(err));
+      }
+      console.error('API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform API data to component format
+  const transformData = (data: DashboardDTO): CategoriaGroup[] => {
+    if (!data?.statusProdutos) return [];
+    
+    const categoriesMap = new Map<string, CategoriaGroup>();
+    
+    data.statusProdutos.forEach(produto => {
+      if (!categoriesMap.has(produto.categoria)) {
+        categoriesMap.set(produto.categoria, {
+          titulo: produto.categoria,
+          itens: []
+        });
+      }
+      
+      const statusMap: Record<string, 'baixo' | 'médio' | 'ideal'> = {
+        'baixo': 'baixo',
+        'médio': 'médio',
+        'alto': 'ideal',
+        'ideal': 'ideal'
+      };
+
+      categoriesMap.get(produto.categoria)?.itens.push({
+        nome: produto.nome,
+        quantidade: produto.quantidade,
+        status: statusMap[produto.status.toLowerCase()] || 'médio'
+      });
+    });
+
+    return Array.from(categoriesMap.values());
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  // Get status badge style
+  const getStatusStyle = (status: 'baixo' | 'médio' | 'ideal') => {
+    switch (status) {
+      case 'ideal': return styles.statusIdeal;
+      case 'médio': return styles.statusMedio;
+      case 'baixo': return styles.statusBaixo;
+      default: return styles.statusMedio;
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0066cc" />
+        <Text style={styles.loadingText}>Carregando dados...</Text>
+        <Text style={styles.loadingSubtext}>Conectando em: {API_URL}</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Erro ao carregar dados</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <Button
+          title="Tentar novamente"
+          onPress={fetchDashboardData}
+          color="#0066cc"
+        />
+      </View>
+    );
+  }
+
+  // Empty state
+  if (!dashboardData || categorias.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Nenhum dado disponível</Text>
+        <Button
+          title="Recarregar"
+          onPress={fetchDashboardData}
+          color="#0066cc"
+        />
+      </View>
+    );
+  }
+
+  // Main render
   return (
-    <>
+    <View style={styles.container}>
       <FlatList
         data={categorias}
         keyExtractor={(item) => item.titulo}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Resumo do Estoque</Text>
+            <Text style={styles.summaryText}>Total de Produtos: {dashboardData.totalProdutos}</Text>
+            <Text style={styles.summaryText}>Estoque Baixo: {dashboardData.produtosEmEstoqueBaixo}</Text>
+            <Text style={styles.summaryText}>Categorias: {dashboardData.totalCategorias}</Text>
+          </View>
+        }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.titulo}>{item.titulo}</Text>
+          <View style={styles.categoryCard}>
+            <Text style={styles.categoryTitle}>{item.titulo}</Text>
             {item.itens.map((subItem) => (
-              <View style={styles.item} key={subItem.nome}>
-                <View>
-                  <Text style={styles.nome}>{subItem.nome}</Text>
-                  <Text style={styles.quantidade}>
-                    Quantidade: {subItem.quantidade}
-                  </Text>
+              <View style={styles.itemRow} key={`${item.titulo}-${subItem.nome}`}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{subItem.nome}</Text>
+                  <Text style={styles.itemQuantity}>Quantidade: {subItem.quantidade}</Text>
                 </View>
-                <View style={[styles.status, getStatusStyle(subItem.status)]}>
-                  <Text style={styles.statusTexto}>{subItem.status}</Text>
+                <View style={[styles.statusBadge, getStatusStyle(subItem.status)]}>
+                  <Text style={styles.statusText}>{subItem.status}</Text>
                 </View>
               </View>
             ))}
@@ -94,88 +212,182 @@ export default function DashboardScreen() {
         )}
       />
 
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Cadastrar Novo Recurso"
-          onPress={() => navigation.navigate('Novo Recurso')}
-        />
+      <View style={styles.buttonsContainer}>
+        <View style={styles.buttonWrapper}>
+          <Button
+            title="Cadastrar Recurso"
+            onPress={() => navigation.navigate('Novo Recurso')}
+            color="#0066cc"
+          />
+        </View>
+        <View style={styles.buttonWrapper}>
+          <Button
+            title="Retirada"
+            onPress={() => navigation.navigate('Retirada de Recursos')}
+            color="#0066cc"
+          />
+        </View>
+        <View style={styles.buttonWrapper}>
+          <Button
+            title="Categorias"
+            onPress={() => navigation.navigate('Categorias')}
+            color="#0066cc"
+          />
+        </View>
+        <View style={styles.buttonWrapper}>
+          <Button
+            title="Novo Produto"
+            onPress={() => navigation.navigate('CadastroProduto')}
+            color="#0066cc"
+          />
+        </View>
       </View>
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Cadastrar Novo Recurso"
-          onPress={() => navigation.navigate('Retirada de Recursos')}
-        />
-      </View>
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Gerenciar Categorias"
-          onPress={() => navigation.navigate('Categorias')}
-        />
-      </View>
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Cadastrar Novo Produto"
-          onPress={() => navigation.navigate('CadastroProduto')}
-        />
-      </View>
-    </>
+    </View>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingBottom: 32,
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#333',
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 18,
+    color: '#dc3545',
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6c757d',
+    marginBottom: 20,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 20,
+  },
+  summaryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  titulo: {
+  summaryTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#212529',
     marginBottom: 12,
   },
-  item: {
+  summaryText: {
+    fontSize: 14,
+    color: '#495057',
+    marginBottom: 4,
+  },
+  categoryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212529',
+    marginBottom: 12,
+  },
+  itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    alignItems: 'center',
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 8,
+    borderBottomColor: '#e9ecef',
   },
-  nome: {
-    fontSize: 16,
+  itemInfo: {
+    flex: 1,
   },
-  quantidade: {
+  itemName: {
     fontSize: 14,
-    color: '#777',
+    color: '#212529',
   },
-  status: {
+  itemQuantity: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 2,
+  },
+  statusBadge: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    alignSelf: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
-  statusTexto: {
-    color: '#fff',
+  statusText: {
+    color: '#ffffff',
     fontWeight: 'bold',
-    textTransform: 'capitalize',
+    fontSize: 12,
   },
   statusIdeal: {
-    backgroundColor: '#34D399',
+    backgroundColor: '#28a745',
   },
   statusMedio: {
-    backgroundColor: '#FBBF24',
+    backgroundColor: '#ffc107',
   },
   statusBaixo: {
-    backgroundColor: '#F87171',
+    backgroundColor: '#dc3545',
   },
-  buttonContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
+  buttonsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  buttonWrapper: {
+    marginBottom: 12,
   },
 });

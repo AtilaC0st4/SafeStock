@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Picker } from '@react-native-picker/picker'; // Instale: npm install @react-native-picker/picker
-
+import { Picker } from '@react-native-picker/picker'; 
 type Item = {
   nome: string;
   quantidade: number;
