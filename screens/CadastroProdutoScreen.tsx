@@ -14,11 +14,10 @@ type Categoria = {
   nome: string;
 };
 
-const API_URL = 'http://192.168.152.141:5194/api'; // Atualize com seu endpoint
+const API_URL = 'http://192.168.25.10:5194/api'; // Atualize com seu endpoint
 
 const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
   const [nomeProduto, setNomeProduto] = useState('');
-  const [quantidade, setQuantidade] = useState('');
   const [categoriaId, setCategoriaId] = useState<number | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,14 +47,8 @@ const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   const handleCadastrar = async () => {
-    if (!nomeProduto.trim() || !categoriaId || !quantidade) {
+    if (!nomeProduto.trim() || !categoriaId) {
       Alert.alert('Erro', 'Preencha todos os campos');
-      return;
-    }
-
-    const quantidadeNum = parseInt(quantidade);
-    if (isNaN(quantidadeNum) ){
-      Alert.alert('Erro', 'Quantidade inválida');
       return;
     }
 
@@ -70,7 +63,7 @@ const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
         body: JSON.stringify({
           nome: nomeProduto,
           categoriaId: categoriaId,
-          quantidadeInicial: quantidadeNum
+          quantidadeInicial: 0 // Sempre zero como solicitado
         })
       });
 
@@ -106,15 +99,6 @@ const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
         placeholder="Ex: Papel Higiênico"
         value={nomeProduto}
         onChangeText={setNomeProduto}
-      />
-
-      <Text style={styles.label}>Quantidade Inicial:</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ex: 10"
-        keyboardType="numeric"
-        value={quantidade}
-        onChangeText={setQuantidade}
       />
 
       <Text style={styles.label}>Categoria:</Text>

@@ -2,25 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet, Alert, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-const API_URL = 'http://192.168.152.182:5194/api'; // Atualize com seu endpoint
+const API_URL = 'http://192.168.25.10:5194/api';
 
 type Categoria = {
   id: number;
   nome: string;
 };
 
-type ProdutoDTO = {
+type Produto = {
+  id: number;
   nome: string;
   quantidade: number;
   categoriaId: number;
 };
 
-export default function ResourceFormScreen() {
+export default function AdicionarEstoqueScreen() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<number | null>(null);
-  const [nomeProduto, setNomeProduto] = useState('');
+  const [produtoSelecionado, setProdutoSelecionado] = useState<number | null>(null);
   const [quantidade, setQuantidade] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loadingCategorias, setLoadingCategorias] = useState(true);
+  const [loadingProdutos, setLoadingProdutos] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Buscar categorias da API
@@ -39,51 +42,85 @@ export default function ResourceFormScreen() {
         Alert.alert('Erro', 'Não foi possível carregar as categorias');
         console.error(err);
       } finally {
-        setLoading(false);
+        setLoadingCategorias(false);
       }
     };
 
     fetchCategorias();
   }, []);
 
-  const handleSalvar = async () => {
-    if (!categoriaSelecionada || !nomeProduto.trim() || !quantidade) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+  // Buscar produtos da categoria selecionada
+  useEffect(() => {
+    const fetchProdutosDaCategoria = async () => {
+      if (!categoriaSelecionada) {
+        setProdutos([]);
+        return;
+      }
+
+      setLoadingProdutos(true);
+      try {
+        const response = await fetch(`${API_URL}/produtos/por-categoria/${categoriaSelecionada}`);
+        
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}`);
+        }
+
+        const data = await response.json();
+        setProdutos(data);
+        setProdutoSelecionado(null);
+      } catch (err) {
+        Alert.alert('Erro', 'Não foi possível carregar os produtos desta categoria');
+        console.error(err);
+      } finally {
+        setLoadingProdutos(false);
+      }
+    };
+
+    fetchProdutosDaCategoria();
+  }, [categoriaSelecionada]);
+
+  const handleAdicionarEstoque = async () => {
+    if (!produtoSelecionado || !quantidade) {
+      Alert.alert('Erro', 'Selecione um produto e informe a quantidade a adicionar');
       return;
     }
 
     const quantidadeNum = parseInt(quantidade);
-    if (isNaN(quantidadeNum) || quantidadeNum <= 0) {
-      Alert.alert('Erro', 'Informe uma quantidade válida');
+    if (isNaN(quantidadeNum)) {
+      Alert.alert('Erro', 'Quantidade deve ser um número válido');
+      return;
+    }
+
+    if (quantidadeNum <= 0) {
+      Alert.alert('Erro', 'Quantidade deve ser maior que zero');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const produtoDTO: ProdutoDTO = {
-        nome: nomeProduto,
-        quantidade: quantidadeNum,
-        categoriaId: categoriaSelecionada
-      };
-
-      const response = await fetch(`${API_URL}/produtos`, {
-        method: 'POST',
+      // Chamar o endpoint de ADICIONAR estoque
+      const response = await fetch(`${API_URL}/produtos/${produtoSelecionado}/adicionar`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(produtoDTO)
+        body: JSON.stringify(quantidadeNum)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Erro ao cadastrar produto');
+        throw new Error('Erro ao adicionar ao estoque');
       }
 
-      Alert.alert('Sucesso', 'Produto cadastrado com sucesso!');
-      setNomeProduto('');
+      // Atualiza a lista de produtos localmente
+      const updatedProdutos = produtos.map(p => 
+        p.id === produtoSelecionado ? {...p, quantidade: p.quantidade + quantidadeNum} : p
+      );
+      setProdutos(updatedProdutos);
+
+      Alert.alert('Sucesso', `${quantidadeNum} itens adicionados ao estoque com sucesso!`);
       setQuantidade('');
-      setCategoriaSelecionada(null);
+      
     } catch (err) {
       Alert.alert('Erro', err instanceof Error ? err.message : 'Erro desconhecido');
       console.error(err);
@@ -92,7 +129,7 @@ export default function ResourceFormScreen() {
     }
   };
 
-  if (loading) {
+  if (loadingCategorias) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -103,11 +140,14 @@ export default function ResourceFormScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.label}>Categoria</Text>
+      <Text style={styles.label}>Selecione a Categoria</Text>
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={categoriaSelecionada}
-          onValueChange={(itemValue) => setCategoriaSelecionada(itemValue)}
+          onValueChange={(itemValue) => {
+            setCategoriaSelecionada(itemValue);
+            setProdutoSelecionado(null);
+          }}
         >
           <Picker.Item label="Selecione uma categoria" value={null} />
           {categorias.map(cat => (
@@ -116,30 +156,59 @@ export default function ResourceFormScreen() {
         </Picker>
       </View>
 
-      <Text style={styles.label}>Nome do Produto</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ex: Papel Higiênico"
-        value={nomeProduto}
-        onChangeText={setNomeProduto}
-      />
+      {categoriaSelecionada && (
+        <>
+          <Text style={styles.label}>Selecione o Produto</Text>
+          <View style={styles.pickerContainer}>
+            {loadingProdutos ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" />
+                <Text>Carregando produtos...</Text>
+              </View>
+            ) : produtos.length === 0 ? (
+              <Text style={styles.noProductsText}>Nenhum produto disponível nesta categoria</Text>
+            ) : (
+              <Picker
+                selectedValue={produtoSelecionado}
+                onValueChange={(itemValue) => setProdutoSelecionado(itemValue)}
+              >
+                <Picker.Item label="Selecione um produto" value={null} />
+                {produtos.map(prod => (
+                  <Picker.Item 
+                    key={prod.id} 
+                    label={`${prod.nome} (Estoque atual: ${prod.quantidade})`} 
+                    value={prod.id} 
+                  />
+                ))}
+              </Picker>
+            )}
+          </View>
 
-      <Text style={styles.label}>Quantidade Inicial</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ex: 10"
-        keyboardType="numeric"
-        value={quantidade}
-        onChangeText={setQuantidade}
-      />
+          {produtoSelecionado && (
+            <>
+              <Text style={styles.label}>Quantidade a Adicionar</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Digite a quantidade a adicionar"
+                keyboardType="numeric"
+                value={quantidade}
+                onChangeText={setQuantidade}
+              />
+            </>
+          )}
+        </>
+      )}
 
-      <View style={styles.button}>
-        <Button 
-          title={submitting ? "Salvando..." : "Salvar Produto"} 
-          onPress={handleSalvar} 
-          disabled={submitting}
-        />
-      </View>
+      {produtoSelecionado && (
+        <View style={styles.buttonContainer}>
+          <Button 
+            title={submitting ? "Adicionando..." : "Adicionar ao Estoque"} 
+            onPress={handleAdicionarEstoque} 
+            disabled={submitting || !quantidade}
+            color="#4CAF50" // Verde para indicar ação positiva
+          />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -150,14 +219,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 10,
     alignItems: 'center',
-  },
-  label: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-    fontSize: 16,
   },
   pickerContainer: {
     borderWidth: 1,
@@ -165,6 +228,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
     backgroundColor: '#fff',
+  },
+  label: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    fontSize: 16,
   },
   input: {
     borderWidth: 1,
@@ -175,7 +243,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     fontSize: 16,
   },
-  button: {
+  buttonContainer: {
     marginTop: 20,
+  },
+  noProductsText: {
+    textAlign: 'center',
+    padding: 10,
+    color: '#666',
   },
 });

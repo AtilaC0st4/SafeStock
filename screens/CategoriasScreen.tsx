@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert, Modal, ActivityIndicator } from 'react-native';
 import { CategoriasScreenNavigationProp } from '../types';
 
-const API_URL = 'http://192.168.152.141:5194/api/categorias'; // Update with your API URL
+const API_URL = 'http://192.168.25.10:5194/api/categorias'; // Update with your API URL
 
 type Categoria = {
   id: number;
