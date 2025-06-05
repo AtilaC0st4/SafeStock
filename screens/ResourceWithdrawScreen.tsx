@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, ActivityIndicator, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Modal, TouchableOpacity, Animated } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Slider from '@react-native-community/slider';
 
-const API_URL = 'http://192.168.25.10:5194/api'; // Atualize com seu endpoint
+const API_URL = 'http://192.168.25.10:5194/api';
 
 type Produto = {
     id: number;
@@ -27,199 +27,259 @@ export default function ResourceWithdrawScreen() {
     const [quantidadeRetirada, setQuantidadeRetirada] = useState(1);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-
-    // Estados para a caixa de mensagem customizada
     const [showModal, setShowModal] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalMessage, setModalMessage] = useState('');
+    const buttonAnimation = new Animated.Value(1);
 
-    // Função para exibir a caixa de mensagem customizada
     const showMessage = (title: string, message: string) => {
         setModalTitle(title);
         setModalMessage(message);
         setShowModal(true);
     };
 
-    // Buscar categorias e produtos da API
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
+    const animateButton = () => {
+        Animated.sequence([
+            Animated.timing(buttonAnimation, {
+                toValue: 0.95,
+                duration: 100,
+                useNativeDriver: true,
+            }),
+            Animated.timing(buttonAnimation, {
+                toValue: 1,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    };
 
-                // Buscar categorias
-                const catResponse = await fetch(`${API_URL}/categorias`);
-                if (!catResponse.ok) throw new Error('Erro ao carregar categorias');
-                const categoriasData = await catResponse.json();
-                setCategorias(categoriasData);
-
-                // Buscar produtos
-                const prodResponse = await fetch(`${API_URL}/produtos`);
-                if (!prodResponse.ok) throw new Error('Erro ao carregar produtos');
-                const produtosData = await prodResponse.json();
-                setProdutos(produtosData);
-
-            } catch (err) {
-                showMessage('Erro', err instanceof Error ? err.message : 'Erro desconhecido ao carregar dados.');
-            } finally {
-                setLoading(false);
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const catResponse = await fetch(`${API_URL}/categorias`);
+            if (!catResponse.ok) {
+                const errorText = await catResponse.text();
+                throw new Error(`Erro ${catResponse.status}: ${errorText || 'Erro ao carregar categorias.'}`);
             }
-        };
+            const categoriasData = await catResponse.json();
+            setCategorias(categoriasData);
 
-        fetchData();
+            const prodResponse = await fetch(`${API_URL}/produtos`);
+            if (!prodResponse.ok) {
+                const errorText = await prodResponse.text();
+                throw new Error(`Erro ${prodResponse.status}: ${errorText || 'Erro ao carregar produtos.'}`);
+            }
+            const produtosData = await prodResponse.json();
+            setProdutos(produtosData);
+
+        } catch (err) {
+            showMessage('Erro ao Carregar Dados', err instanceof Error ? err.message : 'Erro desconhecido ao carregar dados. Tente novamente.');
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    // Filtrar produtos por categoria selecionada
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
     const produtosDaCategoria = categoriaSelecionada
         ? produtos.filter(p => p.categoriaId === categoriaSelecionada)
-        : [];
+        : produtos;
 
-    // Atualizar produto selecionado quando mudar a seleção de categoria
     useEffect(() => {
-        if (produtoSelecionado && !produtosDaCategoria.some(p => p.id === produtoSelecionado.id)) {
+        if (categoriaSelecionada === null) {
             setProdutoSelecionado(null);
             setQuantidadeRetirada(1);
+        } else if (produtoSelecionado && !produtosDaCategoria.some(p => p.id === produtoSelecionado.id)) {
+            setProdutoSelecionado(null);
+            setQuantidadeRetirada(1);
+        } else if (categoriaSelecionada && produtosDaCategoria.length > 0 && !produtoSelecionado) {
+            setProdutoSelecionado(produtosDaCategoria[0]);
+            setQuantidadeRetirada(1);
         }
-    }, [produtosDaCategoria, produtoSelecionado]);
+    }, [produtosDaCategoria, produtoSelecionado, categoriaSelecionada]);
 
-    // Define os estilos para o badge de status do produto
     const getStatusStyle = (status: string) => {
         switch (status.toLowerCase()) {
-            case 'baixo': return { backgroundColor: '#e74c3c' }; // Vermelho
-            case 'médio': return { backgroundColor: '#f1c40f' }; // Amarelo
-            case 'ideal': return { backgroundColor: '#2ecc71' }; // Verde
-            default: return { backgroundColor: '#ccc' }; // Cinza
+            case 'baixo': return { backgroundColor: '#dc3545' };
+            case 'medio': return { backgroundColor: '#ffc107' };
+            case 'ideal': return { backgroundColor: '#28a745' };
+            default: return { backgroundColor: '#6c757d' };
         }
     };
 
-    // Lógica para registrar a retirada do produto (AGORA SEM CHAMAR A API DE MOVIMENTAÇÃO)
     const handleRetirada = async () => {
+        animateButton();
+
         if (!produtoSelecionado) {
-            showMessage('Erro', 'Selecione um produto.');
+            showMessage('Erro de Validação', 'Por favor, selecione um produto para a retirada.');
             return;
         }
 
         if (quantidadeRetirada <= 0) {
-            showMessage('Erro', 'Informe uma quantidade válida para retirada.');
+            showMessage('Erro de Validação', 'A quantidade para retirada deve ser maior que zero.');
             return;
         }
 
         if (quantidadeRetirada > produtoSelecionado.quantidade) {
-            showMessage('Erro', `Quantidade a retirar (${quantidadeRetirada}) é superior à disponível (${produtoSelecionado.quantidade}).`);
+            showMessage('Erro de Validação', `Quantidade a retirar (${quantidadeRetirada}) é superior à disponível (${produtoSelecionado.quantidade}).`);
             return;
         }
 
-        setSubmitting(true); // Ativa o estado de envio
+        setSubmitting(true);
 
         try {
-            // **REMOVIDA A CHAMADA À API DE MOVIMENTAÇÕES**
-            // Você havia comentado que estava dando falha na movimentação.
-            // Para "resolver" isso, removemos a tentativa de registro no backend.
-            // Atenção: Isso significa que o estoque no backend NÃO será atualizado
-            // por esta tela. A atualização será apenas local no app.
-            
-            // Atualizar a lista de produtos no estado local após a retirada
-            const updatedProdutos = produtos.map(p => 
-                p.id === produtoSelecionado.id 
-                    ? { ...p, quantidade: p.quantidade - quantidadeRetirada } 
-                    : p
-            );
-            setProdutos(updatedProdutos);
+            const response = await fetch(`${API_URL}/produtos/retirar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    produtoId: produtoSelecionado.id,
+                    quantidade: quantidadeRetirada,
+                }),
+            });
 
-            showMessage('Sucesso', `Retirada de ${quantidadeRetirada} unidades de ${produtoSelecionado.nome} registrada localmente!`);
-            // Resetar a seleção após o sucesso
-            setProdutoSelecionado(null);
+            if (!response.ok) {
+                const errorData = await response.json();
+                const errorMessage = errorData.message || `Erro HTTP ${response.status}: Falha ao registrar retirada.`;
+                throw new Error(errorMessage);
+            }
+
+            showMessage('Sucesso!', `Retirada de ${quantidadeRetirada} unidade(s) de "${produtoSelecionado.nome}" registrada com sucesso!`);
+            await fetchData();
             setQuantidadeRetirada(1);
-            setCategoriaSelecionada(null); // Opcional: resetar categoria também
+
         } catch (err) {
-            // Este catch só será ativado se houver um erro na lógica interna,
-            // não mais em erros de rede ou API de movimentação.
-            showMessage('Erro', err instanceof Error ? err.message : 'Erro ao processar retirada localmente.');
+            showMessage('Erro na Retirada', err instanceof Error ? err.message : 'Erro desconhecido ao processar retirada.');
+            console.error('Erro na retirada:', err);
         } finally {
-            setSubmitting(false); // Desativa o estado de envio
+            setSubmitting(false);
         }
     };
 
-    // Exibe o indicador de carregamento inicial
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007bff" />
-                <Text style={styles.loadingText}>Carregando dados...</Text>
+                <Text style={styles.loadingText}>Carregando dados do estoque...</Text>
             </View>
         );
     }
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.label}>Categoria</Text>
+            <Text style={styles.headerTitle}>Registrar Retirada</Text>
+
+            <Text style={styles.label}>Selecione a Categoria</Text>
             <View style={styles.pickerContainer}>
                 <Picker
                     selectedValue={categoriaSelecionada}
-                    onValueChange={(itemValue) => setCategoriaSelecionada(itemValue)}
+                    onValueChange={(itemValue) => {
+                        setCategoriaSelecionada(itemValue);
+                        setProdutoSelecionado(null);
+                        setQuantidadeRetirada(1);
+                    }}
+                    enabled={!submitting}
                 >
-                    <Picker.Item label="Selecione uma categoria" value={null} />
+                    <Picker.Item label="Todas as Categorias" value={null} />
                     {categorias.map(cat => (
                         <Picker.Item key={cat.id} label={cat.nome} value={cat.id} />
                     ))}
                 </Picker>
             </View>
 
-            <Text style={styles.label}>Produto</Text>
+            <Text style={styles.label}>Selecione o Produto</Text>
             <View style={styles.pickerContainer}>
-                <Picker
-                    selectedValue={produtoSelecionado?.id || null}
-                    onValueChange={(itemValue) => {
-                        const produto = produtosDaCategoria.find(p => p.id === itemValue) || null;
-                        setProdutoSelecionado(produto);
-                        setQuantidadeRetirada(1); // Reseta a quantidade ao selecionar um novo produto
-                    }}
-                    enabled={!!categoriaSelecionada} // Habilita o picker de produto apenas se uma categoria estiver selecionada
-                >
-                    <Picker.Item label="Selecione um produto" value={null} />
-                    {produtosDaCategoria.map(prod => (
-                        <Picker.Item key={prod.id} label={prod.nome} value={prod.id} />
-                    ))}
-                </Picker>
+                {produtosDaCategoria.length === 0 ? (
+                    <View style={styles.noItemsContainer}>
+                        <Text style={styles.noItemsText}>
+                            {categoriaSelecionada ? 'Nenhum produto nesta categoria.' : 'Nenhum produto disponível no estoque.'}
+                        </Text>
+                    </View>
+                ) : (
+                    <Picker
+                        selectedValue={produtoSelecionado?.id || null}
+                        onValueChange={(itemValue) => {
+                            const produto = produtosDaCategoria.find(p => p.id === itemValue) || null;
+                            setProdutoSelecionado(produto);
+                            setQuantidadeRetirada(1);
+                        }}
+                        enabled={!submitting && produtosDaCategoria.length > 0}
+                    >
+                        <Picker.Item label="Selecione um produto" value={null} />
+                        {produtosDaCategoria.map(prod => (
+                            <Picker.Item 
+                                key={prod.id} 
+                                label={`${prod.nome} (Estoque: ${prod.quantidade})`} 
+                                value={prod.id} 
+                            />
+                        ))}
+                    </Picker>
+                )}
             </View>
 
-            {/* Exibe detalhes do produto selecionado e o slider de quantidade */}
             {produtoSelecionado && (
-                <View>
-                    <Text style={styles.label}>Quantidade Atual em Estoque: {produtoSelecionado.quantidade}</Text>
+                <View style={styles.detailsCard}>
+                    <Text style={styles.detailLabel}>Informações do Produto:</Text>
+                    <View style={styles.detailRow}>
+                        <Text style={styles.detailText}>Nome:</Text>
+                        <Text style={styles.detailValue}>{produtoSelecionado.nome}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <Text style={styles.detailText}>Estoque Atual:</Text>
+                        <Text style={styles.detailValue}>{produtoSelecionado.quantidade}</Text>
+                    </View>
 
-                    <View style={[styles.statusBox, getStatusStyle(produtoSelecionado.status)]}>
-                        <Text style={styles.statusText}>
+                    <View style={[styles.statusBadge, getStatusStyle(produtoSelecionado.status)]}>
+                        <Text style={styles.statusBadgeText}>
                             Status: {produtoSelecionado.status.charAt(0).toUpperCase() + produtoSelecionado.status.slice(1)}
                         </Text>
                     </View>
 
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Quantidade a retirar: {quantidadeRetirada}</Text>
-                        <Slider
-                            style={{ width: '100%', height: 40 }}
-                            minimumValue={1}
-                            maximumValue={produtoSelecionado.quantidade > 0 ? produtoSelecionado.quantidade : 1} // Garante mínimo 1 para o slider
-                            step={1}
-                            value={quantidadeRetirada}
-                            onValueChange={setQuantidadeRetirada}
-                            minimumTrackTintColor="#2196F3"
-                            maximumTrackTintColor="#ccc"
-                            thumbTintColor="#2196F3"
-                        />
-                    </View>
+                    {produtoSelecionado.quantidade > 0 ? (
+                        <View style={styles.quantitySliderContainer}>
+                            <Text style={styles.label}>
+                                Quantidade a Retirar:
+                                <Text style={styles.quantityValue}> {quantidadeRetirada}</Text>
+                            </Text>
+                            <Slider
+                                style={styles.slider}
+                                minimumValue={1}
+                                maximumValue={produtoSelecionado.quantidade}
+                                step={1}
+                                value={quantidadeRetirada}
+                                onValueChange={setQuantidadeRetirada}
+                                minimumTrackTintColor="#007bff"
+                                maximumTrackTintColor="#a0aec0"
+                                thumbTintColor="#007bff"
+                                disabled={submitting}
+                            />
+                        </View>
+                    ) : (
+                        <Text style={styles.outOfStockText}>Produto sem estoque para retirada.</Text>
+                    )}
                 </View>
             )}
 
-            {/* Botão de Registro de Retirada */}
-            <View style={styles.button}>
-                <Button
-                    title={submitting ? "Processando..." : "Registrar Retirada"}
-                    onPress={handleRetirada}
-                    disabled={submitting || !produtoSelecionado || produtoSelecionado.quantidade === 0} 
-                />
-            </View>
+            {produtoSelecionado && produtoSelecionado.quantidade > 0 && (
+                <Animated.View style={[styles.buttonWrapper, { transform: [{ scale: buttonAnimation }] }]}>
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleRetirada}
+                        disabled={submitting || quantidadeRetirada <= 0 || quantidadeRetirada > produtoSelecionado.quantidade}
+                        activeOpacity={0.7}
+                    >
+                        {submitting ? (
+                            <ActivityIndicator color="#ffffff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Registrar Retirada</Text>
+                        )}
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
 
-            {/* Modal de Mensagem Customizada */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -231,7 +291,7 @@ export default function ResourceWithdrawScreen() {
                         <Text style={styles.modalTitle}>{modalTitle}</Text>
                         <Text style={styles.modalText}>{modalMessage}</Text>
                         <TouchableOpacity
-                            style={styles.modalButton}
+                            style={[styles.modalButton, styles.modalSingleButton]}
                             onPress={() => setShowModal(false)}
                         >
                             <Text style={styles.modalButtonText}>Ok</Text>
@@ -247,97 +307,203 @@ const styles = StyleSheet.create({
     container: {
         padding: 20,
         flexGrow: 1,
-        backgroundColor: '#f9f9f9', // Cor de fundo suave
+        backgroundColor: '#f8f9fa',
+    },
+    headerTitle: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#212529',
+        marginBottom: 30,
+        textAlign: 'center',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f9f9f9',
+        backgroundColor: '#f8f9fa',
     },
     loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: '#333',
+        marginTop: 15,
+        fontSize: 17,
+        color: '#495057',
+        fontWeight: '500',
     },
     label: {
         fontWeight: 'bold',
         marginBottom: 8,
         fontSize: 16,
-        color: '#333',
+        color: '#495057',
     },
     pickerContainer: {
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: '#e0e0e0',
+        borderRadius: 10,
+        marginBottom: 20,
+        backgroundColor: '#ffffff',
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    noItemsContainer: {
+        padding: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    noItemsText: {
+        textAlign: 'center',
+        color: '#6c757d',
+        fontSize: 15,
+        fontStyle: 'italic',
+    },
+    detailsCard: {
+        backgroundColor: '#ffffff',
+        borderRadius: 10,
+        padding: 20,
+        marginBottom: 25,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    detailLabel: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#343a40',
+        marginBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        paddingBottom: 5,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    detailText: {
+        fontSize: 16,
+        color: '#495057',
+    },
+    detailValue: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#212529',
+    },
+    statusBadge: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        marginTop: 15,
+        marginBottom: 15,
+    },
+    statusBadgeText: {
+        color: '#ffffff',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    quantitySliderContainer: {
+        marginTop: 15,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    quantityValue: {
+        color: '#007bff',
+        fontWeight: 'bold',
+        fontSize: 18,
+    },
+    slider: {
+        width: '100%',
+        height: 40,
+        marginTop: 10,
+    },
+    outOfStockText: {
+        textAlign: 'center',
+        color: '#dc3545',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginTop: 20,
+        padding: 10,
+        backgroundColor: '#f8d7da',
         borderRadius: 8,
-        marginBottom: 16,
-        backgroundColor: '#fff',
-        overflow: 'hidden', // Garante que o Picker não vaze bordas arredondadas
     },
-    inputContainer: {
-        marginVertical: 16,
-        paddingHorizontal: 5,
+    buttonWrapper: {
+        marginTop: 30,
+        borderRadius: 10,
+        overflow: 'hidden',
     },
-    button: {
-        marginTop: 24,
-        borderRadius: 8,
-        overflow: 'hidden', // Para garantir que o botão tenha bordas arredondadas corretamente
+    actionButton: {
+        backgroundColor: '#007bff',
+        paddingVertical: 16,
+        paddingHorizontal: 25,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
     },
-    statusBox: {
-        padding: 12,
-        borderRadius: 8,
-        marginVertical: 12,
-        alignItems: 'center', // Centraliza o texto
-    },
-    statusText: {
-        color: '#fff',
+    buttonText: {
+        color: '#ffffff',
+        fontSize: 18,
         fontWeight: 'bold',
         textAlign: 'center',
-        fontSize: 16,
     },
-    // Estilos para o Modal Customizado
     centeredView: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)', // Fundo escuro semi-transparente
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
     modalView: {
         margin: 20,
         backgroundColor: "white",
-        borderRadius: 20,
-        padding: 35,
+        borderRadius: 15,
+        padding: 30,
         alignItems: "center",
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 2
+            height: 4
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
-        width: '80%', // Largura do modal
-        maxWidth: 400,
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 8,
+        width: '85%',
+        maxWidth: 450,
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
-        marginBottom: 15,
+        marginBottom: 18,
         color: '#333',
+        textAlign: 'center',
     },
     modalText: {
-        marginBottom: 20,
+        marginBottom: 25,
         textAlign: 'center',
-        fontSize: 16,
+        fontSize: 17,
         color: '#555',
+        lineHeight: 24,
     },
     modalButton: {
-        backgroundColor: '#007bff',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
         borderRadius: 10,
-        padding: 12,
         elevation: 2,
-        minWidth: 100,
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalSingleButton: {
+        width: '50%',
+        alignSelf: 'center',
+        backgroundColor: '#007bff',
     },
     modalButtonText: {
         color: 'white',

@@ -13,15 +13,19 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // Opções comuns de navegação
 const screenOptions: NativeStackNavigationOptions = {
   headerStyle: {
-    backgroundColor: '#2c3e50',
+    backgroundColor: '#34495e', // Um tom de azul mais escuro, comum em apps modernos
   },
-  headerTintColor: '#fff',
+  headerTintColor: '#ffffff', // Cor do texto do título e ícones de volta
   headerTitleStyle: {
-    fontWeight: 'bold',
+    fontWeight: '600', // Um pouco menos bold que 'bold', para suavizar
+    fontSize: 18,      // Tamanho da fonte ligeiramente maior para o título
   },
   contentStyle: {
-    backgroundColor: '#ecf0f1',
-  }
+    backgroundColor: '#f8f9fa', // Fundo mais claro para o conteúdo da tela, contrastando com o cabeçalho
+  },
+  headerShadowVisible: false, // Remove a sombra padrão do cabeçalho para um visual mais limpo
+  // REMOVIDO: headerBackTitleVisible: false, // Esta propriedade não existe em NativeStackNavigationOptions
+  // A NativeStack geralmente lida com isso de forma nativa ou você pode usar headerBackTitle: '' se precisar
 };
 
 export default function AppRoutes() {
@@ -34,29 +38,28 @@ export default function AppRoutes() {
         <Stack.Screen
           name="Dashboard"
           component={DashboardScreen}
-          options={{ title: 'Painel de Recursos' }}
+          options={{ title: 'Visão Geral do Estoque' }} // Título mais descritivo
         />
         <Stack.Screen
           name="Novo Recurso"
           component={ResourceFormScreen}
-          options={{ title: 'Cadastrar Recurso' }}
+          options={{ title: 'Adicionar Item ao Estoque' }} // Mais claro sobre a ação
         />
         <Stack.Screen
           name="Retirada de Recursos"
           component={ResourceWithdrawScreen}
-          options={{ title: 'Retirada de Recursos' }}
+          options={{ title: 'Registrar Retirada' }} // Título mais conciso e acionável
         />
         <Stack.Screen
           name="Categorias"
           component={CategoriasScreen}
-          options={{ title: 'Gerenciar Categorias' }}
+          options={{ title: 'Gerenciamento de Categorias' }} // Título mais formal e claro
         />
         <Stack.Screen
           name="CadastroProduto"
           component={CadastroProdutoScreen}
-          options={{ title: 'Cadastrar Novo Produto' }}
+          options={{ title: 'Cadastrar Novo Item' }} // Título mais amigável e direto
         />
-
       </Stack.Navigator>
     </NavigationContainer>
   );
