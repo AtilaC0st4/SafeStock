@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert,} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,35 +9,94 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CadastroProduto'>;
 };
 
+type Categoria = {
+  id: number;
+  nome: string;
+};
+
+const API_URL = 'http://192.168.152.141:5194/api'; // Atualize com seu endpoint
+
 const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
   const [nomeProduto, setNomeProduto] = useState('');
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState('');
+  const [quantidade, setQuantidade] = useState('');
+  const [categoriaId, setCategoriaId] = useState<number | null>(null);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Mock de categorias - substitua pelas suas categorias reais
-  const categorias = [
-    'Higiene e Limpeza',
-    'Alimentos e Bebidas',
-    'Primeiros Socorros',
-    'Outros Úteis'
-  ];
+  // Buscar categorias da API
+  useEffect(() => {
+    const fetchCategorias = async () => {
+      try {
+        const response = await fetch(`${API_URL}/categorias`);
+        
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}`);
+        }
 
-  const handleCadastrar = () => {
-    if (!nomeProduto.trim() || !categoriaSelecionada) {
+        const data = await response.json();
+        setCategorias(data);
+      } catch (err) {
+        Alert.alert('Erro', 'Não foi possível carregar as categorias');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategorias();
+  }, []);
+
+  const handleCadastrar = async () => {
+    if (!nomeProduto.trim() || !categoriaId || !quantidade) {
       Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
 
-    // Aqui você faria a lógica para salvar no estado/banco de dados
-    console.log('Produto cadastrado:', {
-      nome: nomeProduto,
-      categoria: categoriaSelecionada,
-      quantidade: 0, // Inicia com 0
-      status: 'baixo' // Status inicial
-    });
+    const quantidadeNum = parseInt(quantidade);
+    if (isNaN(quantidadeNum) ){
+      Alert.alert('Erro', 'Quantidade inválida');
+      return;
+    }
 
-    Alert.alert('Sucesso', 'Produto cadastrado com sucesso!');
-    navigation.goBack();
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_URL}/produtos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nome: nomeProduto,
+          categoriaId: categoriaId,
+          quantidadeInicial: quantidadeNum
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao cadastrar');
+      }
+
+      Alert.alert('Sucesso', 'Produto cadastrado com sucesso!');
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Erro', err instanceof Error ? err.message : 'Erro desconhecido');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+        <Text>Carregando categorias...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -49,42 +108,67 @@ const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
         onChangeText={setNomeProduto}
       />
 
+      <Text style={styles.label}>Quantidade Inicial:</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Ex: 10"
+        keyboardType="numeric"
+        value={quantidade}
+        onChangeText={setQuantidade}
+      />
+
       <Text style={styles.label}>Categoria:</Text>
       <View style={styles.pickerContainer}>
         <Picker
-          selectedValue={categoriaSelecionada}
-          onValueChange={(itemValue) => setCategoriaSelecionada(itemValue)}
+          selectedValue={categoriaId}
+          onValueChange={(itemValue) => setCategoriaId(itemValue)}
         >
-          <Picker.Item label="Selecione uma categoria" value="" />
-          {categorias.map((cat, index) => (
-            <Picker.Item key={index} label={cat} value={cat} />
+          <Picker.Item label="Selecione uma categoria" value={null} />
+          {categorias.map((cat) => (
+            <Picker.Item key={cat.id} label={cat.nome} value={cat.id} />
           ))}
         </Picker>
       </View>
 
       <Button 
-        title="Cadastrar Produto" 
+        title={submitting ? "Cadastrando..." : "Cadastrar Produto"} 
         onPress={handleCadastrar} 
+        disabled={submitting}
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  label: { fontWeight: 'bold', marginVertical: 8 },
+  container: { 
+    padding: 20,
+    flex: 1,
+    backgroundColor: '#fff'
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  label: { 
+    fontWeight: 'bold', 
+    marginVertical: 8,
+    fontSize: 16
+  },
   input: { 
     borderWidth: 1, 
     borderColor: '#ccc', 
-    padding: 10, 
+    padding: 12,
     marginBottom: 15,
-    borderRadius: 5
+    borderRadius: 5,
+    fontSize: 16
   },
   pickerContainer: { 
     borderWidth: 1, 
     borderColor: '#ccc', 
     marginBottom: 20,
-    borderRadius: 5
+    borderRadius: 5,
+    overflow: 'hidden'
   }
 });
 

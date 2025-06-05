@@ -1,104 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Picker } from '@react-native-picker/picker'; 
-type Item = {
-  nome: string;
-  quantidade: number;
-  status: 'baixo' | 'médio' | 'ideal';
-};
+import { View, Text, Button, StyleSheet, Alert, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+
+const API_URL = 'http://192.168.152.182:5194/api'; // Atualize com seu endpoint
 
 type Categoria = {
-  titulo: string;
-  itens: Item[];
+  id: number;
+  nome: string;
 };
 
-const categorias: Categoria[] = [
-  {
-    titulo: 'Higiene e Limpeza',
-    itens: [
-      { nome: 'Papel Higiênico', quantidade: 12, status: 'ideal' },
-      { nome: 'Sabonete', quantidade: 3, status: 'médio' },
-      { nome: 'Detergente', quantidade: 1, status: 'baixo' },
-      { nome: 'Álcool em Gel', quantidade: 2, status: 'médio' },
-    ],
-  },
-  {
-    titulo: 'Alimentos e Bebidas',
-    itens: [
-      { nome: 'Arroz', quantidade: 5, status: 'ideal' },
-      { nome: 'Feijão', quantidade: 2, status: 'médio' },
-      { nome: 'Óleo de Cozinha', quantidade: 1, status: 'baixo' },
-      { nome: 'Café', quantidade: 0, status: 'baixo' },
-    ],
-  },
-  {
-    titulo: 'Primeiros Socorros',
-    itens: [
-      { nome: 'Curativos', quantidade: 10, status: 'ideal' },
-      { nome: 'Álcool 70%', quantidade: 1, status: 'baixo' },
-      { nome: 'Antisséptico', quantidade: 2, status: 'médio' },
-      { nome: 'Analgésico', quantidade: 5, status: 'ideal' },
-    ],
-  },
-  {
-    titulo: 'Outros Úteis',
-    itens: [
-      { nome: 'Pilhas', quantidade: 3, status: 'médio' },
-      { nome: 'Lanterna', quantidade: 1, status: 'ideal' },
-      { nome: 'Máscaras', quantidade: 0, status: 'baixo' },
-      { nome: 'Papel e Caneta', quantidade: 4, status: 'médio' },
-    ],
-  },
-];
+type ProdutoDTO = {
+  nome: string;
+  quantidade: number;
+  categoriaId: number;
+};
 
 export default function ResourceFormScreen() {
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>('');
-  const [itemSelecionado, setItemSelecionado] = useState<string>('');
-  const [quantidade, setQuantidade] = useState<string>('');
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<number | null>(null);
+  const [nomeProduto, setNomeProduto] = useState('');
+  const [quantidade, setQuantidade] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Quando categoria muda, resetar item selecionado
+  // Buscar categorias da API
   useEffect(() => {
-    setItemSelecionado('');
-  }, [categoriaSelecionada]);
+    const fetchCategorias = async () => {
+      try {
+        const response = await fetch(`${API_URL}/categorias`);
+        
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}`);
+        }
 
-  // Busca o status do item selecionado
-  const getStatusDoItem = (): 'baixo' | 'médio' | 'ideal' | '' => {
-    if (!categoriaSelecionada || !itemSelecionado) return '';
-    const categoria = categorias.find(cat => cat.titulo === categoriaSelecionada);
-    if (!categoria) return '';
-    const item = categoria.itens.find(it => it.nome === itemSelecionado);
-    return item ? item.status : '';
-  };
+        const data = await response.json();
+        setCategorias(data);
+      } catch (err) {
+        Alert.alert('Erro', 'Não foi possível carregar as categorias');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleSalvar = () => {
-    if (!categoriaSelecionada || !itemSelecionado || !quantidade) {
-      Alert.alert('Erro', 'Preencha todos os campos.');
+    fetchCategorias();
+  }, []);
+
+  const handleSalvar = async () => {
+    if (!categoriaSelecionada || !nomeProduto.trim() || !quantidade) {
+      Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
 
-    const status = getStatusDoItem();
-    if (!status) {
-      Alert.alert('Erro', 'Status do recurso não encontrado.');
+    const quantidadeNum = parseInt(quantidade);
+    if (isNaN(quantidadeNum) || quantidadeNum <= 0) {
+      Alert.alert('Erro', 'Informe uma quantidade válida');
       return;
     }
 
-    console.log({
-      nome: itemSelecionado,
-      quantidade: Number(quantidade),
-      categoria: categoriaSelecionada,
-      status,
-    });
+    setSubmitting(true);
 
-    Alert.alert('Sucesso', 'Recurso cadastrado com sucesso!');
-    setCategoriaSelecionada('');
-    setItemSelecionado('');
-    setQuantidade('');
+    try {
+      const produtoDTO: ProdutoDTO = {
+        nome: nomeProduto,
+        quantidade: quantidadeNum,
+        categoriaId: categoriaSelecionada
+      };
+
+      const response = await fetch(`${API_URL}/produtos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(produtoDTO)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao cadastrar produto');
+      }
+
+      Alert.alert('Sucesso', 'Produto cadastrado com sucesso!');
+      setNomeProduto('');
+      setQuantidade('');
+      setCategoriaSelecionada(null);
+    } catch (err) {
+      Alert.alert('Erro', err instanceof Error ? err.message : 'Erro desconhecido');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // Itens disponíveis na categoria selecionada
-  const itensDaCategoria = categoriaSelecionada
-    ? categorias.find(cat => cat.titulo === categoriaSelecionada)?.itens ?? []
-    : [];
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+        <Text>Carregando categorias...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -108,67 +109,73 @@ export default function ResourceFormScreen() {
           selectedValue={categoriaSelecionada}
           onValueChange={(itemValue) => setCategoriaSelecionada(itemValue)}
         >
-          <Picker.Item label="Selecione uma categoria" value="" />
+          <Picker.Item label="Selecione uma categoria" value={null} />
           {categorias.map(cat => (
-            <Picker.Item key={cat.titulo} label={cat.titulo} value={cat.titulo} />
+            <Picker.Item key={cat.id} label={cat.nome} value={cat.id} />
           ))}
         </Picker>
       </View>
 
-      <Text style={styles.label}>Recurso</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={itemSelecionado}
-          onValueChange={(itemValue) => setItemSelecionado(itemValue)}
-          enabled={!!categoriaSelecionada}
-        >
-          <Picker.Item label="Selecione um recurso" value="" />
-          {itensDaCategoria.map(it => (
-            <Picker.Item key={it.nome} label={it.nome} value={it.nome} />
-          ))}
-        </Picker>
-      </View>
-
-      <Text style={styles.label}>Quantidade</Text>
+      <Text style={styles.label}>Nome do Produto</Text>
       <TextInput
         style={styles.input}
-        placeholder="Ex: 5"
+        placeholder="Ex: Papel Higiênico"
+        value={nomeProduto}
+        onChangeText={setNomeProduto}
+      />
+
+      <Text style={styles.label}>Quantidade Inicial</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Ex: 10"
         keyboardType="numeric"
         value={quantidade}
         onChangeText={setQuantidade}
       />
 
-      <Text style={styles.label}>Status: {getStatusDoItem() || '-'}</Text>
-
       <View style={styles.button}>
-        <Button title="Salvar Recurso" onPress={handleSalvar} />
+        <Button 
+          title={submitting ? "Salvando..." : "Salvar Produto"} 
+          onPress={handleSalvar} 
+          disabled={submitting}
+        />
       </View>
     </ScrollView>
   );
 }
 
-import { TextInput } from 'react-native';
-
 const styles = StyleSheet.create({
   container: {
     padding: 20,
+    flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   label: {
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 8,
+    fontSize: 16,
   },
   pickerContainer: {
-    backgroundColor: '#f3f3f3',
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 8,
     marginBottom: 16,
+    backgroundColor: '#fff',
   },
   input: {
-    backgroundColor: '#f3f3f3',
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 8,
-    padding: 10,
+    padding: 12,
     marginBottom: 16,
+    backgroundColor: '#fff',
+    fontSize: 16,
   },
   button: {
-    marginTop: 10,
+    marginTop: 20,
   },
 });
