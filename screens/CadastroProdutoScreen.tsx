@@ -22,7 +22,7 @@ const API_URL = 'http://192.168.25.10:5194/api';
 
 const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
   const [nomeProduto, setNomeProduto] = useState('');
-  const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined); // Alterado para undefined
+  const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined); 
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +65,7 @@ const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
       showMessage('Erro de Validação', 'Por favor, preencha o nome do produto.');
       return;
     }
-    if (categoriaId === undefined) { // Alterado para verificar undefined
+    if (categoriaId === undefined) { 
       showMessage('Erro de Validação', 'Por favor, selecione uma categoria.');
       return;
     }
@@ -90,7 +90,7 @@ const CadastroProdutoScreen: React.FC<Props> = ({ navigation }) => {
 
       showMessage('Sucesso!', 'Produto cadastrado com sucesso!');
       setNomeProduto('');
-      setCategoriaId(undefined); // Reset para undefined
+      setCategoriaId(undefined); 
     } catch (err) {
       showMessage('Erro ao Cadastrar', err instanceof Error ? err.message : 'Erro desconhecido');
       console.error('Erro no cadastro do produto:', err);

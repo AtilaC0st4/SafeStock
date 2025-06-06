@@ -3,7 +3,7 @@ import { View, Text, TextInput, ActivityIndicator, Modal, TouchableOpacity, Anim
 import { CategoriasScreenNavigationProp } from '../types';
 import { useFocusEffect } from '@react-navigation/native';
 
-const API_URL = 'http://192.168.25.10:5194/api/categorias'; // Atualize com seu endpoint
+const API_URL = 'http://192.168.25.10:5194/api/categorias';
 
 type Categoria = {
     id: number;
@@ -273,7 +273,6 @@ const CategoriasScreen: React.FC<{ navigation: CategoriasScreenNavigationProp }>
                 }
             />
 
-            {/* Modal de Edição */}
             <Modal visible={!!editando} animationType="fade" transparent={true} onRequestClose={() => setEditando(null)}>
                 <View style={styles.centeredView}>
                     <View style={styles.modalView}>
@@ -327,7 +326,6 @@ const CategoriasScreen: React.FC<{ navigation: CategoriasScreenNavigationProp }>
                     <View style={styles.modalView}>
                         <Text style={styles.modalTitle}>{modalTitle}</Text>
                         <Text style={styles.modalText}>{modalMessage}</Text>
-                        {/* Ajuste aqui: use o novo estilo modalSingleButton */}
                         <TouchableOpacity
                             style={[styles.modalButton, styles.modalSingleButton]}
                             onPress={() => setShowModal(false)}
@@ -558,7 +556,7 @@ const styles = StyleSheet.create({
     },
     modalButtons: {
         flexDirection: 'row',
-        justifyContent: 'center', // Ajustado para centralizar botões
+        justifyContent: 'center', 
         width: '100%',
         marginTop: 10,
         gap: 10,
@@ -570,12 +568,12 @@ const styles = StyleSheet.create({
         elevation: 2,
         alignItems: 'center',
         justifyContent: 'center',
-        // Removido flex: 1 para controle mais preciso quando há apenas um botão
+       
     },
-    modalSingleButton: { // Novo estilo para o botão "Ok"
-        width: '50%', // Define uma largura para o botão único
-        alignSelf: 'center', // Garante que ele fique centralizado
-        backgroundColor: '#007bff', // Uma cor padrão para o botão "Ok"
+    modalSingleButton: { 
+        width: '50%', 
+        alignSelf: 'center', 
+        backgroundColor: '#007bff', 
     },
     modalButtonText: {
         color: 'white',
@@ -584,15 +582,15 @@ const styles = StyleSheet.create({
     },
     modalCancelButton: {
         backgroundColor: '#6c757d',
-        flex: 1, // Adiciona flex: 1 novamente para botões lado a lado
+        flex: 1, 
     },
     modalSaveButton: {
         backgroundColor: '#28a745',
-        flex: 1, // Adiciona flex: 1 novamente para botões lado a lado
+        flex: 1, 
     },
     modalDeleteConfirmButton: {
         backgroundColor: '#dc3545',
-        flex: 1, // Adiciona flex: 1 novamente para botões lado a lado
+        flex: 1, 
     },
     emptyListContainer: {
         alignItems: 'center',

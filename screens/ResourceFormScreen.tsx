@@ -41,23 +41,23 @@ export default function AdicionarEstoqueScreen() {
         setShowModal(true);
     };
 
-    // Função para animar o botão ao ser pressionado
+    
     const animateButton = () => {
         Animated.sequence([
             Animated.timing(buttonAnimation, {
-                toValue: 0.95, // Encolhe um pouco
+                toValue: 0.95, 
                 duration: 100,
                 useNativeDriver: true,
             }),
             Animated.timing(buttonAnimation, {
-                toValue: 1, // Volta ao tamanho normal
+                toValue: 1, 
                 duration: 150,
                 useNativeDriver: true,
             }),
         ]).start();
     };
 
-    // Buscar categorias da API
+    
     useEffect(() => {
         const fetchCategorias = async () => {
             try {
@@ -72,7 +72,7 @@ export default function AdicionarEstoqueScreen() {
 
                 const data = await response.json();
                 setCategorias(data);
-                // Pré-seleciona a primeira categoria se houver para melhorar a UX
+               
                 if (data.length > 0) {
                     setCategoriaSelecionada(data[0].id);
                 }
@@ -87,12 +87,12 @@ export default function AdicionarEstoqueScreen() {
         fetchCategorias();
     }, []);
 
-    // Buscar produtos da categoria selecionada
+    
     useEffect(() => {
         const fetchProdutosDaCategoria = async () => {
             if (!categoriaSelecionada) {
                 setProdutos([]);
-                setProdutoSelecionado(null); // Limpa o produto selecionado
+                setProdutoSelecionado(null); 
                 return;
             }
 
@@ -107,7 +107,7 @@ export default function AdicionarEstoqueScreen() {
 
                 const data: Produto[] = await response.json();
                 setProdutos(data);
-                setProdutoSelecionado(null); // Limpa o produto selecionado ao mudar de categoria
+                setProdutoSelecionado(null); 
             } catch (err) {
                 showMessage('Erro ao Carregar Produtos', err instanceof Error ? err.message : 'Não foi possível carregar os produtos desta categoria.');
                 console.error(err);
@@ -117,10 +117,10 @@ export default function AdicionarEstoqueScreen() {
         };
 
         fetchProdutosDaCategoria();
-    }, [categoriaSelecionada]); // Depende da categoria selecionada
+    }, [categoriaSelecionada]); 
 
     const handleAdicionarEstoque = async () => {
-        animateButton(); // Ativa a animação do botão
+        animateButton(); 
 
         if (!produtoSelecionado || !quantidade.trim()) {
             showMessage('Erro de Validação', 'Por favor, selecione um produto e informe a quantidade a adicionar.');
@@ -138,16 +138,16 @@ export default function AdicionarEstoqueScreen() {
             return;
         }
 
-        setSubmitting(true); // Ativa o estado de envio
+        setSubmitting(true); 
 
         try {
-            // Chamar o endpoint de ADICIONAR estoque (assumindo que a API aceita um PUT com a quantidade no body)
+           
             const response = await fetch(`${API_URL}/produtos/${produtoSelecionado}/adicionar`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(quantidadeNum) // Envia a quantidade como JSON
+                body: JSON.stringify(quantidadeNum) 
             });
 
             if (!response.ok) {
@@ -155,25 +155,23 @@ export default function AdicionarEstoqueScreen() {
                 throw new Error(`Erro ao adicionar ao estoque. Status: ${response.status}. Detalhes: ${errorText || 'Sem detalhes.'}`);
             }
 
-            // Atualiza a lista de produtos localmente para refletir a nova quantidade
+            
             const updatedProdutos = produtos.map(p =>
                 p.id === produtoSelecionado ? { ...p, quantidade: p.quantidade + quantidadeNum } : p
             );
             setProdutos(updatedProdutos);
 
             showMessage('Sucesso!', `${quantidadeNum} itens adicionados ao estoque com sucesso!`);
-            setQuantidade(''); // Limpa o campo de quantidade
-            // Opcional: manter o produto selecionado ou resetar tudo
-            // setProdutoSelecionado(null);
+            setQuantidade(''); 
         } catch (err) {
             showMessage('Erro ao Adicionar Estoque', err instanceof Error ? err.message : 'Erro desconhecido ao adicionar ao estoque.');
             console.error(err);
         } finally {
-            setSubmitting(false); // Desativa o estado de envio
+            setSubmitting(false); 
         }
     };
 
-    // Renderização do estado de carregamento inicial
+    
     if (loadingCategorias) {
         return (
             <View style={styles.fullScreenLoading}>
@@ -193,8 +191,8 @@ export default function AdicionarEstoqueScreen() {
                     selectedValue={categoriaSelecionada}
                     onValueChange={(itemValue) => {
                         setCategoriaSelecionada(itemValue);
-                        setProdutoSelecionado(null); // Limpa o produto selecionado ao mudar de categoria
-                        setQuantidade(''); // Limpa a quantidade também
+                        setProdutoSelecionado(null); 
+                        setQuantidade(''); 
                     }}
                     enabled={!submitting}
                 >
@@ -296,7 +294,7 @@ const styles = StyleSheet.create({
     container: {
         padding: 20,
         flexGrow: 1,
-        backgroundColor: '#f0f2f5', // Fundo suave
+        backgroundColor: '#f0f2f5', 
     },
     headerTitle: {
         fontSize: 24,
@@ -328,12 +326,12 @@ const styles = StyleSheet.create({
     },
     pickerContainer: {
         borderWidth: 1,
-        borderColor: '#ced4da', // Cor de borda mais suave
+        borderColor: '#ced4da', 
         backgroundColor: '#ffffff',
         borderRadius: 8,
         marginBottom: 20,
-        overflow: 'hidden', // Garante que o Picker respeite o borderRadius
-        shadowColor: '#000', // Sombra sutil
+        overflow: 'hidden', 
+        shadowColor: '#000', 
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 2,
@@ -366,7 +364,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     actionButton: {
-        backgroundColor: '#28a745', // Verde para adicionar
+        backgroundColor: '#28a745', 
         paddingVertical: 15,
         paddingHorizontal: 20,
         borderRadius: 8,
@@ -390,10 +388,10 @@ const styles = StyleSheet.create({
         color: '#6c757d',
         fontSize: 15,
     },
-    pickerPlaceholder: { // Estilo para o item "Selecione..." do Picker
+    pickerPlaceholder: { 
         color: '#999',
     },
-    // Estilos para o Modal Customizado (reutilizados)
+    
     centeredView: {
         flex: 1,
         justifyContent: 'center',

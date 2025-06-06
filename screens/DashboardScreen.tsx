@@ -230,7 +230,7 @@ export default function DashboardScreen() {
                 )}
             />
 
-            {/* Área de Botões - Posicionada na parte inferior */}
+            {/* Área de BotõesPosicionada na parte inferior */}
             <View style={styles.bottomActionsContainer}>
                 <Animated.View style={[styles.buttonWrapperBottom, { transform: [{ scale: buttonAnimations.adicionarEstoque }] }]}>
                     <TouchableOpacity
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         padding: 16,
-        paddingBottom: 95, // Aumenta o padding para que a FlatList não fique coberta pelos botões de baixo
+        paddingBottom: 95, 
         paddingTop: 10, 
     },
     summaryCard: {
@@ -427,12 +427,12 @@ const styles = StyleSheet.create({
     statusBaixo: {
         backgroundColor: '#dc3545', 
     },
-    // Estilos para a área de botões na parte inferior
+    
     bottomActionsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        paddingVertical: 12, // Aumenta o padding vertical para a área dos botões
+        paddingVertical: 12, 
         paddingHorizontal: 8, 
         backgroundColor: '#ffffff',
         borderTopWidth: 1, 
@@ -446,15 +446,15 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        height: 80, // Altura fixa da barra para dar mais espaço
+        height: 80, 
     },
     buttonWrapperBottom: {
         flex: 1, 
-        marginHorizontal: 4, // Aumenta um pouco a margem entre os botões
+        marginHorizontal: 4, 
     },
     actionButtonBottom: {
         backgroundColor: '#007bff', 
-        paddingVertical: 6, // Reduz o padding vertical dos botões individuais
+        paddingVertical: 6, 
         paddingHorizontal: 5, 
         borderRadius: 8, 
         elevation: 2, 
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
         alignItems: 'center',
         justifyContent: 'center',
-        height: 60, // Mantém a altura dos botões, mas agora a área tem mais espaço
+        height: 60, 
     },
     buttonTextBottom: {
         color: '#ffffff', 
