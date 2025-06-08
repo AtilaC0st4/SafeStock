@@ -11,6 +11,7 @@ const firebaseConfig = {
   appId: "1:137256721423:web:e3c0aa874eba7cbdcfd77a"
 };
 
-
 const app = initializeApp(firebaseConfig);
+
+// Auth sem persistência entre sessões
 export const auth = getAuth(app);

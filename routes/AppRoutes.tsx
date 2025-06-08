@@ -5,6 +5,10 @@ import ResourceWithdrawScreen from '../screens/ResourceWithdrawScreen';
 import CategoriasScreen from '../screens/CategoriasScreen';
 import CadastroProdutoScreen from '../screens/CadastroProdutoScreen';
 import { RootStackParamList } from '../types';
+import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity, View, Text } from 'react-native';
+import { signOut } from 'firebase/auth';
+import { auth } from '../services/firebase';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -18,14 +22,24 @@ const screenOptions: NativeStackNavigationOptions = {
 
 export default function AppRoutes() {
   return (
-    <Stack.Navigator
-      initialRouteName="Dashboard"
-      screenOptions={screenOptions}
-    >
+    <Stack.Navigator initialRouteName="Dashboard" screenOptions={screenOptions}>
       <Stack.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ title: 'Visão Geral do Estoque' }}
+        options={{
+          title: 'Visão Geral do Estoque',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => signOut(auth)}
+              style={{ marginRight: 10 }}
+            >
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="log-out-outline" size={24} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 10 }}>SAIR</Text>
+              </View>
+            </TouchableOpacity>
+          ),
+        }}
       />
       <Stack.Screen
         name="Novo Recurso"
